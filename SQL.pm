@@ -18,7 +18,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw($activcount
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 #sub AUTOLOAD {
 #    # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -493,7 +493,7 @@ The maximum length of data to be returned is 65400 bytes.
 These limits cannot be relaxed without rewriting the module.
 
 The maximum number of fields selected or returned by any request
-is 500. Likewise, you can pass no more than 500 arguments to
+is 520. Likewise, you can pass no more than 520 arguments to
 B<openp> or B<executep>.  If these limitations are too strict,
 you can ask your Perl administrator to change the value of
 MAX_FIELDS in the module's header file and recompile the module.
@@ -502,7 +502,7 @@ Multiple sessions are supported. This feature would be most useful
 when connecting to multiple servers; multiple sessions on a single
 server are of little use without support for asynchronous requests.
 
-Using SQL, it is possible to use a different client character set
+CLI applications can use a different client character set
 for each request, but this module sets it only at the session level.
 
 The following Teradata features are not supported:
@@ -523,7 +523,7 @@ the address shown below. No guarantees!
 =head1 Reference
 
 Teradata Call-Level Interface Version 2 Reference for
-Network-Attached Systems, B035-2418-093A (Sep. 2003).
+Network-Attached Systems, B035-2418-115A (Nov. 2005).
 
 =head1 Author
 

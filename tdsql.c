@@ -61,6 +61,7 @@ void _simplify_prepinfo (
   char * parcel )
 {
  int   i;
+ int   nftr;  /* Number of fields to return */
  struct CliPrepInfoType * prep_ptr;
  char * col_byte_ptr;
  struct CliPrepColInfoType * col_info;
@@ -70,7 +71,13 @@ void _simplify_prepinfo (
  col_info = (struct CliPrepColInfoType *) col_byte_ptr;
 
   /* We don't support WITH, so we ignore the SummaryCount. */
- desc_ptr->nfields = prep_ptr->ColumnCount;
+ if (prep_ptr->ColumnCount <= MAX_FIELDS) {
+    desc_ptr->nfields = prep_ptr->ColumnCount;
+ } else {
+    desc_ptr->nfields = MAX_FIELDS;
+    fprintf(stderr, "Only the first %d fields will be processed\n",
+       MAX_FIELDS);
+ }
 
  for (i = 0; i < desc_ptr->nfields; i++) {
     switch (col_info->DataType) {

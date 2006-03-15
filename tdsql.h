@@ -48,7 +48,7 @@
 #define VARGRAPHIC_N    465
 
  /* Maximum number of fields per request */
-#define MAX_FIELDS      502
+#define MAX_FIELDS      520
  /* Maximum length of returned data */
 #define MAX_RDA_LEN     65400
 

@@ -354,9 +354,9 @@ Xfetch(req, hash)
 	int		i, decp, decs;
 	STRLEN		slen;
 	char *		sptr;
-	char *          ret_data;
-	Byte *         indic_ptr;
-	Byte *         data_ptr;
+	char *		ret_data;
+	Byte *		indic_ptr;
+	Byte *		data_ptr;
 	struct datadescr * ddesc_ptr;
 	long int	wint;
         double		wdouble;
