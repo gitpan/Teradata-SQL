@@ -7,3 +7,7 @@ Revision history for Perl extension Teradata::SQL.
 0.02  Wed Mar 15 07:41:43 2006
 	- Added check to make sure MAX_FIELDS is not exceeded.
 	  Increased MAX_FIELDS to 520.
+
+0.03  Tue Jan 30 08:11:02 2007
+	- Added support (if you could call it that) for MS Visual C.
+	- Minor bug fixes.

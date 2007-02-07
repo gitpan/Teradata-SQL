@@ -1,0 +1,39 @@
+Notes for Teradata::SQL under Windows
+
+I eventually got this module to compile under Windows Server 2003
+by performing the following steps. Since I do not pretend to be a
+Windows expert, these steps are probably incomplete. Those with
+more Windows experience are invited to tie up the loose ends.
+
+1. Install the Teradata CLIv2 libraries (.h and .dll).
+
+2. Install .NET Framework (v1.1 is adequate) and Platform SDK (core),
+   if they are not already installed.
+
+3. Unzip and untar the Teradata-SQL package. Run 'unix2dos' or a
+   similar program to change the line terminations in all files.
+
+4. Set LIB and PATH.  Following are the paths I eventually had;
+   modify as needed for your server.
+
+set LIB=%LIB%;C:\Program Files\Microsoft visual Studio .NET
+2003\Vc7\lib;C:\Program Files\Microsoft.NET\SDK\v1.1\lib;C:\Program Files\Micros
+oft Visual Studio .NET 2003\Vc7\lib;C:\Program Files\Microsoft Platform SDK for
+Windows Server 2003 R2\lib;C:\Program Files\Microsoft Visual Studio .NET 2003\Co
+mmon7\IDE;C:\Program Files\NCR\Teradata Client\cli\lib
+
+path %PATH%;C:\Program
+ Files\Microsoft.NET\SDK\v1.1\Bin;C:\Program Files\Microsoft Visual Studio .NET
+2003\Vc7\bin;C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\
+Bin;C:\Program Files\Microsoft Visual Studio .NET 2003\Common7\IDE;C:\Program Fi
+les\Microsoft visual Studio .NET 2003\Vc7\lib
+
+5. perl Makefile.PL
+
+6. Modify the Makefile by hand to add 3 library names to the
+   end of LDLOADLIBS. This should really be done in Makefile.PL
+   somehow.
+
+LDLOADLIBS = ... wincli32.lib tdusr32.lib dbcprims.lib
+
+7. nmake, etc., as usual.

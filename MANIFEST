@@ -4,6 +4,8 @@ MANIFEST
 README
 SQL.pm
 SQL.xs
+WINNOTES
 tdsql.c
 tdsql.h
 test.pl
+META.yml                                 Module meta-data (added by MakeMaker)

@@ -18,7 +18,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw($activcount
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 #sub AUTOLOAD {
 #    # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -353,7 +353,7 @@ form, or an empty hash if no more rows are available; e.g.:
 
 This works with cursors opened by open() or by openp().
 The hash entries are those specified by ColumnName, not ColumnTitle.
-See the SQLv2 Reference, s.v. "PrepInfo Parcel".
+See the CLIv2 Reference, s.v. "PrepInfo Parcel".
 
 =item B<close>
 
@@ -395,7 +395,6 @@ a signal handler; for example:
      chomp;  @incoming = split;
      $rh->executep(@incoming);
   }
-  $rh->finish;  # To clean up storage used by executep.
   # All finished.
   $dbh->disconnect;  # Note: $dbh, not $rh.
 

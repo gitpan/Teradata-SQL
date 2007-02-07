@@ -72,14 +72,14 @@ void _simplify_prepinfo (
 
   /* We don't support WITH, so we ignore the SummaryCount. */
  if (prep_ptr->ColumnCount <= MAX_FIELDS) {
-    desc_ptr->nfields = prep_ptr->ColumnCount;
+    nftr = desc_ptr->nfields = prep_ptr->ColumnCount;
  } else {
-    desc_ptr->nfields = MAX_FIELDS;
+    nftr = desc_ptr->nfields = MAX_FIELDS;
     fprintf(stderr, "Only the first %d fields will be processed\n",
        MAX_FIELDS);
  }
 
- for (i = 0; i < desc_ptr->nfields; i++) {
+ for (i = 0; i < nftr; i++) {
     switch (col_info->DataType) {
      case SMALLINT_NN:
      case SMALLINT_N:
@@ -251,6 +251,22 @@ double _dec_to_double (
 /*--------------------------------------------------------------------
 **  Convert a decimal field (10 or more digits) to a string.
 **------------------------------------------------------------------*/
+#ifdef _MSC_VER
+ /*---------------------- Microsoft Visual C++ */
+void _dec_to_string (
+  char *  res_string,
+  Byte * dec_data,
+  int     decs )
+{
+ __int64  wlonglong;
+ char   wstring[24];
+
+ wlonglong = *((_int64 *) dec_data);
+ sprintf(wstring, "%I64d", wlonglong);
+ _insert_dp(res_string, wstring, decs);
+}
+#else
+ /*---------------------- Others */
 void _dec_to_string (
   char *  res_string,
   Byte * dec_data,
@@ -263,6 +279,7 @@ void _dec_to_string (
  sprintf(wstring, "%lld", wlonglong);
  _insert_dp(res_string, wstring, decs);
 }
+#endif
 
 /*--------------------------------------------------------------------
 **  Set CLI options.

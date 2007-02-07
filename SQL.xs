@@ -61,7 +61,7 @@ Xconnect(log, ccs, tmode)
 	   Safefree(sess_ptr);
 	}
 
-	sv_setiv(c_actv_sv, g_activcount);
+	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
     OUTPUT:
@@ -78,7 +78,7 @@ Xdisconnect(sess)
 	RETVAL = Zdisconnect((pSession) sess);
 	Safefree((pSession) sess);
 
-	sv_setiv(c_actv_sv, g_activcount);
+	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
     OUTPUT:
@@ -95,7 +95,7 @@ Xexecute(sess, sql)
 	g_msglevel = SvIV(c_msgl_sv);
 	RETVAL = Zexecute((pSession) sess, sql);
 
-	sv_setiv(c_actv_sv, g_activcount);
+	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
     OUTPUT:
@@ -137,7 +137,7 @@ Xopen(sess, sql)
 	   }
 	}
 
-	sv_setiv(c_actv_sv, g_activcount);
+	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
     OUTPUT:
@@ -224,7 +224,7 @@ Xexecutep(sess, sql, ...)
 	   RETVAL = Zexecutep_args((pSession) sess, sql, &hv_datainfo,
 	     hv_data, idlen);
 	}
-	sv_setiv(c_actv_sv, g_activcount);
+	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
     OUTPUT:
@@ -336,7 +336,7 @@ Xopenp(sess, sql, ...)
 	   }
 	}
 
-	sv_setiv(c_actv_sv, g_activcount);
+	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
     OUTPUT:
@@ -473,7 +473,7 @@ Xfetch(req, hash)
 	   }
 	}
 
-	sv_setiv(c_actv_sv, g_activcount);
+	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
 
@@ -493,7 +493,7 @@ Xclose(req)
 	   Safefree((pRequest) req);
 	}
 
-	sv_setiv(c_actv_sv, g_activcount);
+	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
     OUTPUT:
@@ -509,7 +509,7 @@ Xabort(sess)
 	g_msglevel = SvIV(c_msgl_sv);
 	RETVAL = Zabort((pSession) sess);
 
-	sv_setiv(c_actv_sv, g_activcount);
+	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
     OUTPUT:
