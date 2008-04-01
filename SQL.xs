@@ -405,7 +405,7 @@ Xfetch(req, hash)
 	          if ( (*indic_ptr & indic_mask) > 0) {
 	             XPUSHs(&PL_sv_undef);
 	          } else {
-	             wint = *((char *)data_ptr) + 0;
+	             wint = *((ByteInt *)data_ptr) + 0;
 	             XPUSHs(sv_2mortal(newSViv(wint)));
 	          }
 	          data_ptr++;
@@ -448,6 +448,16 @@ Xfetch(req, hash)
 	             XPUSHs(sv_2mortal(newSVpv(wstring, slen)));
 	             data_ptr += 8;
 	          }
+	          break;
+	       case BIGINT_N:
+	          if ( (*indic_ptr & indic_mask) > 0) {
+	             XPUSHs(&PL_sv_undef);
+	          } else {
+	             _dec_to_string(wstring, data_ptr, 0);
+	             slen = strlen(wstring);
+	             XPUSHs(sv_2mortal(newSVpv(wstring, slen)));
+	          }
+	          data_ptr += 8;
 	          break;
 	       case FLOAT_N:
 	          if ( (*indic_ptr & indic_mask) > 0) {
@@ -513,4 +523,143 @@ Xabort(sess)
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
     OUTPUT:
-	RETVAL
+
+ # SERVER_INFO (DBCHQE)
+void
+Xserver_info(server, item)
+    PROTOTYPE:$$
+    INPUT:
+	char *		server
+	int		item
+    PREINIT:
+	int             i, wint, string_len;
+	int             ok;
+	 /* DBCHQE request area */
+	DBCHQEP		our_qep;
+	 /* Data returned from DBCHQE */
+	Byte		hqe_ret_data[200];
+	struct QEPDBLIMIT_  our_dblimit;
+	Byte *		ret_ptr;
+	 /* Error message from DBCHQE */
+	char 		hqe_message[258];
+    PPCODE:
+	c_msgl_sv = get_sv("Teradata::SQL::msglevel", FALSE);
+	c_errc_sv = get_sv("Teradata::SQL::errorcode", FALSE);
+	c_emsg_sv = get_sv("Teradata::SQL::errormsg", FALSE);
+	g_msglevel = SvIV(c_msgl_sv);
+
+	  /* Store the fields needed for the request. */
+	our_qep.qepLevel = QEPL10NLVL1;
+	our_qep.qepItem = item;
+	our_qep.qepTLen = strlen(server);
+	our_qep.qepTDP = (Int32) server;
+	our_qep.qepRALen = 200;
+	our_qep.qepRArea = hqe_ret_data;
+	memcpy(our_qep.qepMLid, "EN", 2);
+	our_qep.qepMsgP = hqe_message;
+	our_qep.qepMsgM = 256;
+
+	ok = Zserver_info(&our_qep);
+	if (ok) {
+	   switch (our_qep.qepItem) {
+	    case QEPIDBR:	/* DBS release info */
+	      /* Returned to perl as a two-element list */
+	      ret_ptr = our_qep.qepRArea;
+	      for (string_len=0; string_len < 30; string_len++) {
+		 if (*ret_ptr == ' ') break;
+		 else ret_ptr++;
+	      }
+	      XPUSHs(sv_2mortal(newSVpv(our_qep.qepRArea,
+		 string_len)));
+	      ret_ptr = our_qep.qepRArea + 30;
+	      for (string_len=0; string_len < 32; string_len++) {
+		 if (*ret_ptr == ' ') break;
+		 else ret_ptr++;
+	      }
+	      XPUSHs(sv_2mortal(newSVpv(our_qep.qepRArea + 30,
+		 string_len)));
+	      break;
+	    case QEPISC:	/* char set */
+	    case QEPICL2R:	/* CLIv2 Release Info */
+	    case QEPISU:	/* actual username */
+	    case QEPIRMR:	/* Message Release Query */
+	    case QEPIDCS:	/* server default char set */
+	      XPUSHs(sv_2mortal(newSVpv(our_qep.qepRArea,
+		 our_qep.qepRDLen)));
+	      break;
+	    case QEPIFTSM:	/* transaction semantics */
+	    case QEPIFLCS:	/* lang-conformance support */
+	    case QEPIFUCR:	/* updatable cursor support */
+	    case QEPIFRFI:	/* referential integ. support */
+	    case QEPIDTSM:	/* tx-semantics default */
+	    case QEP64K:	/* 64KB parcel support */
+	    case QEPIFSSO:	/* SSO support */
+	    case QEPIFUPS:	/* Atomic UPSERT support */
+	    case QEPIAOP:	/* array-ops support */
+	    case QEPIFMRG:	/* Merge-Into support */
+	    case QEPIFLOB:	/* LOB support */
+	    case QEPIXRS:	/* extended response support */
+	    case QEPIUD:	/* Identity Column Support */
+	    case QEPIRPO:	/* cursor positioning sup. */
+	    case QEPIENC:	/* data encryption */
+	    case QEPIESS:	/* Enhanced Statement Status */
+	    case QEPIUDT:	/* User-defined types */
+	    case QEPIRCA:	/* relaxed call arguments */
+	    case QEPIIDE:	/* MaxDecimalPrecision */
+	    case QEPIRID:	/* ReturnIdentityData */
+	      XPUSHs(sv_2mortal(newSVpv(our_qep.qepRArea, 1)));
+	      break;
+	    case QEPIDPF:	/* internal (V)AMP count */
+	    case QEPIDMSS:	/* MaxSegmentSize */
+	    case QEPIEPU:	/* enlarged parcel (APH) support */
+	    case QEPIAPH:	/* APH responses */
+	      wint = *((int *)our_qep.qepRArea);
+	      XPUSHs(sv_2mortal(newSViv(wint)));
+	      break;
+	    case QEPITPR:	/* precision on timestamp */
+	      wint = *((short *)our_qep.qepRArea);
+	      XPUSHs(sv_2mortal(newSViv(wint)));
+	      wint = *((short *)(our_qep.qepRArea + 2));
+	      XPUSHs(sv_2mortal(newSViv(wint)));
+	      break;
+	    case QEPISQL:	/* SQL limits */
+	      memcpy(&our_dblimit, our_qep.qepRArea,
+	        sizeof(struct QEPDBLIMIT_));
+	      wint = (int) our_dblimit.MaxRowBytes;
+	      XPUSHs(sv_2mortal(newSViv(wint)));
+	      wint = (int) our_dblimit.MaxLobBytes;
+	      XPUSHs(sv_2mortal(newSViv(wint)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxObjectNameChars)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxColinTbl)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxTblinSel)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxColinSel)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxColGrpBy)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxColOrdrBy)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxCharLiteralChars)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxBinLiteralChars)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxColBytes)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxCharChars)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxVarcharChars)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxGraphicChars)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxVargraphicChars)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxByteBytes)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxVarbyteBytes)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxDecimal)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxTimeScale)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxTimeStampScale)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxIntervalToSecondScale)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxFldsUsingRow)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxParamsInRequest)));
+	      XPUSHs(sv_2mortal(newSViv(our_dblimit.MaxSPParams)));
+	      break;
+	    /*case QEPIACS:   not implemented */
+	    /* remainder are undocumented or not implemented here */
+	    default:
+	      XPUSHs(&PL_sv_undef);
+	   }
+	} else {
+	   XPUSHs(&PL_sv_undef);
+	}
+
+	sv_setiv(c_errc_sv, g_errorcode);
+	sv_setpv(c_emsg_sv, g_errormsg);

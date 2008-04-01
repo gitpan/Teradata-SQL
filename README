@@ -48,9 +48,9 @@ This module requires:
    CLIv2
 
 At present, the module has been tested only on Solaris, MP-RAS,
-and Windows 2003 Server. The Windows support is incomplete; see
-WINNOTES.  Those who are able to test it on earlier versions of
-Perl or other platforms are welcome to collaborate.
+AIX, and Windows 2003 Server. The Windows support is incomplete;
+see WINNOTES.  Those who are able to test it on earlier versions
+of Perl or other platforms are welcome to collaborate.
 
 COPYRIGHT AND LICENSE
 

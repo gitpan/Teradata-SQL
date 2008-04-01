@@ -15,10 +15,10 @@ our @ISA = qw(Exporter DynaLoader);
 our %EXPORT_TAGS = ( 'all' => [ qw($activcount
   $errorcode $errormsg) ] );
 
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
+our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} }, "server_info" );
 
 our @EXPORT = qw();
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 #sub AUTOLOAD {
 #    # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -222,6 +222,17 @@ sub abort {
  return Xabort($ch->{sess_id});
 }
 
+#--- Server info (DBCHQE)
+sub server_info {
+ my ($server, $item) = @_;
+
+ if (wantarray) {
+    return Xserver_info($server, $item);
+ } else {
+    return (Xserver_info($server, $item))[0];
+ }
+}
+
 1;
 
 __END__
@@ -377,10 +388,34 @@ a signal handler; for example:
 
 =back
 
+=head1 Function
+
+=over 4
+
+=item B<server_info> TDP ITEM
+
+This is an ordinary function, not a method. It is independent of
+connections and requests. It can be exported into your namespace.
+
+This is a partial implementation of the DBCHQE call, which queries
+various attributes of the server.
+You need not be connected to the server to run this function.
+The first argument is the server name or "TDP ID"; for instance, for
+"mrbigcop1", it would be "mrbig". The second argument is the number
+of the item to be queried; these numbers are given in the CLIv2 manual.
+The one of most interest is probably 34 (QEPIDBR), which returns
+the DBS release and version information as a 2-element list.
+
+Items that require a connection (session) ID are not implemented,
+and not all session-independent items are implemented.
+If an item is not implemented, it will return undef.
+
+=back
+
 =head1 Example
 
   # Connect and get a database handle.
-  $dbh = Teradata::SQL::connect("dbc/user,password")
+  $dbh = Teradata::SQL::connect("mrbig/user,password")
     or die "Could not connect";
   # Prepare a request; read the results.
   $rh = $dbh->open("sel * from edw.employees");
@@ -469,21 +504,21 @@ Arguments passed to Teradata via B<openp> and B<executep> will
 be passed in Perl internal form (integer, double, or byte
 string). You can pass undefs to become nulls in the database, but
 there are limitations. Since all undefs look the same to the module,
-it coerces them all to "integers". This works for most data types,
+it coerces them all to integers. This works for most data types,
 but Teradata will not allow integer nulls to be placed in BYTE,
 TIME, or TIMESTAMP fields. At present, the only workaround for this
-situation would be to code a request without parameter
-markers and hard-code the nulls to be of the type you want.
+situation would be to eschew parameter markers for the nulls and
+hard-code the nulls to be of the type you want.
 In other words, instead of this:
 
    $rh = $dbh->prepare("insert into funkytown values (?,?,?)");
    $rh->executep(1, "James Brown", undef);
 
-you would code this:
+you could code this:
 
-   $rh = $dbh->prepare("insert into funkytown values
-      (1, 'James Brown', cast(null as timestamp(0)) )");
-   $rh->executep();
+   $rh = $dbh->prepare("insert into funkytown values (?,?,
+     cast(null as timestamp(0)))");
+   $rh->executep(1, "James Brown");
 
 =head1 Limitations
 
@@ -522,7 +557,7 @@ the address shown below. No guarantees!
 =head1 Reference
 
 Teradata Call-Level Interface Version 2 Reference for
-Network-Attached Systems, B035-2418-115A (Nov. 2005).
+Network-Attached Systems, B035-2418-096A (Sep. 2006).
 
 =head1 Author
 

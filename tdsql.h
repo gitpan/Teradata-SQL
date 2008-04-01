@@ -7,8 +7,15 @@
 #include <coperr.h>
 #include <dbcarea.h>
 #include <parcel.h>
+#include <dbchqep.h>
+
+/* coptypes really should have this typedef, but it doesn't.
+   WGR, 2008-03-19. */
+typedef signed char  ByteInt;
 
 /* Data types */
+#define BIGINT_NN       600
+#define BIGINT_N        601
 #define BLOB            400
 #define BLOB_DEFERRED   404
 #define BLOB_LOCATOR    408
@@ -127,3 +134,4 @@ int Zopenp_args ( pRequest, char *, struct ModCliDataInfoType *,
 char * Zfetch ( pRequest );
 int Zclose ( pRequest );
 int Zabort ( pSession );
+int Zserver_info ( DBCHQEP * );

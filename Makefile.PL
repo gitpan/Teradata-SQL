@@ -1,5 +1,11 @@
 use ExtUtils::MakeMaker;
 
+# If CLI is not installed, go quietly.
+unless (-f "/usr/include/coptypes.h") {
+   print "CLIv2 installation not found.\n";
+   exit 0;
+}
+
 WriteMakefile(
     'NAME'		=> 'Teradata::SQL',
     'VERSION_FROM'	=> 'SQL.pm', # finds $VERSION

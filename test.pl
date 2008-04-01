@@ -6,7 +6,7 @@
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 use Test;
-BEGIN { plan tests => 11 };
+BEGIN { plan tests => 12 };
 use Teradata::SQL qw(:all);
 ok(1); # If we made it this far, we're ok.
 
@@ -17,10 +17,25 @@ die ">>>> Please specify TDLOGON\n" unless $TDLOGON;
 
 $VERBOSE = $ENV{'TEST_VERBOSE'};
 
+use constant {
+ QEPIFTSM => 3,
+ QEPIIDE  => 39,
+ QEPIDBR  => 34
+};
+
+$TDLOGON =~ m/(.*)\//;  $server = $1;
+print "server_info..................";
+$trx = Teradata::SQL::server_info($server, QEPIFTSM)
+  or die "Server not found";
+$bigint_ok = (Teradata::SQL::server_info($server, QEPIIDE) == 'Y');
+is_ok(1, 2);
+@dbs = Teradata::SQL::server_info($server, QEPIDBR);
+print "DBS release: @dbs\n";
+
 print "connect......................";
 $dbh = Teradata::SQL::connect($TDLOGON, 'UTF8')
   or die "Could not connect";
-is_ok(check_ec(), 2);
+is_ok(check_ec(), 3);
 
 print "open,fetch,close.............";
 $sth = $dbh->open("select * from dbc.Tables
@@ -30,7 +45,7 @@ while ( @z = $sth->fetchrow_list()) {
    print " data: @z\n" if $VERBOSE;
 }
 $sth->close();
-is_ok(check_ec(), 3);
+is_ok(check_ec(), 4);
 
 print "prepare......................";
 $sth = $dbh->prepare("select * from dbc.Columns
@@ -42,7 +57,7 @@ while ( @z = $sth->fetchrow_list()) {
    print " data: @z\n" if $VERBOSE;
 }
 $sth->close();
-is_ok(check_ec(), 4);
+is_ok(check_ec(), 5);
 
 print "fetchrow_hash................";
 $sth = $dbh->open("select 2+5 wise_men")
@@ -51,7 +66,7 @@ while ( %z = $sth->fetchrow_hash ) {
    if ($VERBOSE) {
       foreach $k (keys %z) { print " key <$k> value <$z{$k}>\n"; }
    }
-   is_ok($z{'wise_men'} == 7, 5);
+   is_ok($z{'wise_men'} == 7, 6);
 }
 $sth->close();
 
@@ -60,23 +75,26 @@ if (defined $ENV{'TDDB'}) {
    my $DB = $ENV{'TDDB'};
    $all_ok = 1;
 
-   $dbh->execute("create table $DB.notbloodylikely
+   my $ct = "create table $DB.notbloodylikely
 (ident    integer,
  float02  float,
  ch03     char(10),
- vch04    varchar(30) )
-unique primary index(ident)");
+ vch04    varchar(30),
+ int05    integer )
+unique primary index(ident)";
+
+   $dbh->execute($ct);
    $all_ok &&= check_ec();
-   $sth = $dbh->prepare("insert into $DB.notbloodylikely (?,?,?,?)");
-   $sth->executep(1, 3.14159265, 'pi', "transcendental");
+   $sth = $dbh->prepare("insert into $DB.notbloodylikely (?,?,?,?,?)");
+   $sth->executep(1, 3.14159265, 'pi', "transcendental", 123);
    $all_ok &&= check_ec();
-   $sth->executep(2, 2.71828183, 'Homer', "Iliad");
-   $sth->executep(3, undef, undef, undef);
+   $sth->executep(2, 2.71828183, 'Homer', "Iliad", -987);
+   $sth->executep(3, undef, undef, undef, undef);
    $all_ok &&= check_ec();
    $dbh->execute("drop table $DB.notbloodylikely");
    $all_ok &&= check_ec();
 
-   is_ok($all_ok, 6);
+   is_ok($all_ok, 7);
 } else {
    print "skipping test\n";
 }
@@ -86,25 +104,31 @@ if (defined $ENV{'TDDB'}) {
    my $DB = $ENV{'TDDB'};
    $all_ok = 1;
 
-   $dbh->execute("create table $DB.ZQ_decimaltests
+   $ct = "create table $DB.ZQ_decimaltests
 (ident    integer  not null,
  dec01    decimal(2,0),
  dec02    decimal(4,1),
  dec03    decimal(9,3),
  dec04    decimal(18,0),
- dec05    decimal(18,6) )
-unique primary index(ident)");
-   $all_ok &&= check_ec();
-   $sth = $dbh->prepare("insert into $DB.ZQ_decimaltests (?,?,?,?,?,?)");
-   $sth->executep(1, 11, 987.6, 773355.118, 9081726354666.0, 3.141592);
-   $sth->executep(2, -99, -999.9, -2.718, -1029384756777.0, -987.654);
-   $sth->executep(3, undef, undef, undef, undef, undef);
-   $sth->executep(4, undef, 123.4, undef, 17, undef);
+ dec05    decimal(18,6),\n" .
+ ($bigint_ok ? "bint06   bigint" : "int06  integer") .
+" )
+unique primary index(ident)";
 
-   @exp = ('1 11 987.6 773355.118 9081726354666 3.141592',
-     '2 -99 -999.9 -2.718 -1029384756777 -987.654000',
-     '3     ',
-     '4  123.4  17 ');
+   $dbh->execute($ct);
+   $all_ok &&= check_ec();
+   $sth = $dbh->prepare("insert into $DB.ZQ_decimaltests (?,?,?,?,?,?,?)");
+   $sth->executep(1, 11, 987.6, 773355.118, 9081726354666.0, 3.141592,
+     1971693993 );
+   $sth->executep(2, -99, -999.9, -2.718, -1029384756777.0, -987.654,
+     -1058209749 );
+   $sth->executep(3, undef, undef, undef, undef, undef, undef);
+   $sth->executep(4, undef, 123.4, undef, 17, undef, -1);
+
+   @exp = ('1 11 987.6 773355.118 9081726354666 3.141592 1971693993',
+     '2 -99 -999.9 -2.718 -1029384756777 -987.654000 -1058209749',
+     '3      ',
+     '4  123.4  17  -1');
    $i = 0;
    $sth = $dbh->open("select * from $DB.ZQ_decimaltests
     order by 1");
@@ -119,7 +143,7 @@ unique primary index(ident)");
    $sth->close;
    $dbh->execute("drop table $DB.ZQ_decimaltests");
 
-   is_ok($all_ok, 7);
+   is_ok($all_ok, 8);
 } else {
    print "skipping test\n";
 }
@@ -129,7 +153,7 @@ $sth = $dbh->open("select _unicode '002104304E8C'xc");
 $utf8 = $sth->fetchrow_list;
 print " UTF-8 string: ", unpack('H*', $utf8), "\n" if $VERBOSE;
 $sth->close;
-is_ok($utf8 eq "\x21\xD0\xB0\xE4\xBA\x8C", 8);
+is_ok($utf8 eq "\x21\xD0\xB0\xE4\xBA\x8C", 9);
 
 print "ANSI date....................";
 $dbh->execute("set session dateform=ansidate")
@@ -138,18 +162,18 @@ $sth = $dbh->open("select 1010911 (date)");
 $ansidate = $sth->fetchrow_list;
 print " date: $ansidate\n" if $VERBOSE;
 $sth->close;
-is_ok($ansidate eq '2001-09-11', 9);
+is_ok($ansidate eq '2001-09-11', 10);
 
 print "quiet errors.................";
 $Teradata::SQL::msglevel = 0;
 $sth = $dbh->open("select * from vanity.of_vanities")
   && $sth->close;
-is_ok($errorcode == 3802, 10);
+is_ok($errorcode == 3802, 11);
 
 print "disconnect...................";
 $Teradata::SQL::msglevel = 1;
 $dbh->disconnect;
-is_ok(check_ec(), 11);
+is_ok(check_ec(), 12);
 
 
 #--- Was it okay?

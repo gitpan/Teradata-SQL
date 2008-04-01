@@ -131,6 +131,11 @@ void _simplify_prepinfo (
            desc_ptr->sqlvar[i].dlb = 1;
         desc_ptr->sqlvar[i].decscale = col_info->DataLen % 256;
         break;
+     case BIGINT_NN:
+     case BIGINT_N:
+        desc_ptr->sqlvar[i].sqltype = BIGINT_N;
+        desc_ptr->sqlvar[i].dlb = sizeof(Int64);
+        break;
      case BLOB:
      case BLOB_DEFERRED:
      case BLOB_LOCATOR:
@@ -239,7 +244,7 @@ double _dec_to_double (
  } else if (decp >= 3) {
     wlong = *((short *) dec_data) + 0;
  } else {		/* Precision is less than 3. */
-    wlong = *((char *) dec_data) + 0;
+    wlong = *((ByteInt *) dec_data) + 0;
  }
 
  wdouble = (double) wlong;
@@ -794,4 +799,39 @@ int Zabort (
  DBCHCL(&result,cnta, dbcp);
 
  return _fetch_all_parcels("ABORT", dbcp, 0);
+}
+
+/**
+DBCHQE (ReturnCode, ContextArea,DBCHQEP)
+Int32 *ReturnCode
+Int32 *ContextArea
+Int32 *DBCHQEP
+**/
+/*--------------------------------------------------------------------
+**  Get SERVER information (DBCHQE)
+**------------------------------------------------------------------*/
+int Zserver_info (
+  DBCHQEP * our_qep )
+{
+ Int32  dbchqe_rc;
+
+ DBCHQE(&result,cnta, our_qep);
+
+   /* Did Teradata issue an error message? */
+ dbchqe_rc = result || our_qep->qepRC || our_qep->qepRC;
+
+ if ( dbchqe_rc != 0 ) {
+    g_errorcode = dbchqe_rc;
+    memcpy(g_errormsg, our_qep->qepMsgP, our_qep->qepMsgM);
+    g_errormsg[our_qep->qepMsgM] = '\0';
+    if (g_msglevel >= 1) {
+       fprintf(stderr, "Error in server_info (request %d)\n", our_qep->qepItem);
+       fprintf(stderr, "  Error code: %d\n", dbchqe_rc);
+       fprintf(stderr, "  %s\n", g_errormsg);
+    }
+    return(0);
+ }
+
+  /* Otherwise, all is well. */
+ return(1);
 }
