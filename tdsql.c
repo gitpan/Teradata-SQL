@@ -121,7 +121,9 @@ void _simplify_prepinfo (
      case DECIMAL_N:
         desc_ptr->sqlvar[i].sqltype = DECIMAL_N;
         desc_ptr->sqlvar[i].datalen  = col_info->DataLen / 256;
-        if (desc_ptr->sqlvar[i].datalen >= 10)
+        if (desc_ptr->sqlvar[i].datalen >= 19)
+           desc_ptr->sqlvar[i].dlb = 16;
+        else if (desc_ptr->sqlvar[i].datalen >= 10)
            desc_ptr->sqlvar[i].dlb = 8;
         else if (desc_ptr->sqlvar[i].datalen >= 5)
            desc_ptr->sqlvar[i].dlb = 4;

@@ -1,4 +1,4 @@
-Teradata::SQL version 0.03
+Teradata::SQL version 0.05
 ==========================
 
 Teradata::SQL is a Perl interface to Teradata SQL. It does not attempt

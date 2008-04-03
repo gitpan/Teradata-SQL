@@ -18,7 +18,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw($activcount
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} }, "server_info" );
 
 our @EXPORT = qw();
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 #sub AUTOLOAD {
 #    # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -211,6 +211,18 @@ sub close {
  return Xclose($rh->{req_id});
 }
 
+#--- Set maximum decimal digits.
+sub dec_digits {
+ my ($ch, $digits) = @_;
+ if ($ch->{htype} ne 'conn') {
+    Carp::carp "Invalid handle passed to open";
+    return 0;
+ }
+
+#--- We just set this in the XS code; no call to the server.
+ return Xdec_digits($ch->{'sess_id'}, $digits);
+}
+
 #--- Abort. This is an asynchronous abort request, not a ROLLBACK.
 sub abort {
  my $ch = shift;
@@ -371,6 +383,13 @@ See the CLIv2 Reference, s.v. "PrepInfo Parcel".
 Request method. Closes the cursor. This should always be called
 after opening and fetching the results.
 
+=item B<dec_digits> N
+
+Connection method. Sets the maximum number of decimal digits to be
+returned to N. This is similar to the DECIMALDIGITS command in BTEQ.
+See, however, the section L<"Data Types"> for notes about large
+decimal values.
+
 =item B<abort>
 
 Connection method. Aborts the currently active request for the session.
@@ -477,7 +496,7 @@ The data returned from Teradata will be converted to one of
 these types and will look like ordinary Perl values.
 
 Dates are returned in either integer form (e.g., 1020815 for
-15 August 2002) or in ANSI character form (e.g., '2002-08-15'),
+15 August 2002) or ANSI character form (e.g., '2002-08-15'),
 depending on the default for your system, the session
 characteristics, and whether you have issued a SET
 SESSION DATEFORM request. If you want dates returned in some
@@ -489,16 +508,27 @@ By default, times and timestamps are returned as character
 strings in their default formats. Again, you can cast them
 as you wish in your select request.
 
-A word of caution is in order about decimal fields.
+A word of caution is in order about decimal fields and
+bigints.
 Decimal fields with a precision of 9 or lower will be
 converted to doubles (numeric) and will behave more or less
 as expected, with the usual caveats about floating-point
-arithmetic. Decimal fields with a higher precision (10-18 digits)
+arithmetic. Decimal fields with a higher precision (10-18 digits),
+as well as bigints,
 will be converted to character strings. This has the advantage
 of preserving their full precision, but it means that Perl
 will not treat them as numeric. To convert them to numeric
 fields, you can add 0 to them, but values with 16 or more
 significant digits will lose precision. You have been warned!
+
+Decimal fields of more than 18 digits are not supported.
+If they are returned from the database, the module will issue
+a warning and substitute a 0 in their place. (This warning
+will not appear if msglevel is 0.)
+You should instead ask the database to convert
+them to strings, e.g. like this:
+
+   cast(cast(large_dec as format '-(30)9.99') as varchar(40))
 
 Arguments passed to Teradata via B<openp> and B<executep> will
 be passed in Perl internal form (integer, double, or byte

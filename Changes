@@ -12,9 +12,13 @@ Revision history for Perl extension Teradata::SQL.
 	- Added support (if you could call it that) for MS Visual C.
 	- Minor bug fixes.
 
-0.04  x
+0.04  Tue Apr  1 10:50:46 2008
 	- Added support for BIGINT.
 	- Added server_info function.
 	- Added hints file for AIX.
 	- Bug fixes; added typedef for ByteInt.
 	- Added test for presence of CLI includes to help CPAN testers.
+
+0.05  Thu Apr  3 11:25:12 2008
+	- Added dec_digits method.
+	- Clarified handling of large decimals.

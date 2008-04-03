@@ -442,11 +442,16 @@ Xfetch(req, hash)
 	             wdouble = _dec_to_double(data_ptr, decp, decs);
 	             XPUSHs(sv_2mortal(newSVnv(wdouble)));
 	             data_ptr += ddesc_ptr->sqlvar[i].dlb;
-	          } else {
+	          } else if (decp <= 18) {
 	             _dec_to_string(wstring, data_ptr, decs);
 	             slen = strlen(wstring);
 	             XPUSHs(sv_2mortal(newSVpv(wstring, slen)));
 	             data_ptr += 8;
+	          } else {
+		     if (g_msglevel > 0)
+	                warn("Decimal field too large");
+	             XPUSHs(sv_2mortal(newSVnv(0.0)));
+	             data_ptr += 16;
 	          }
 	          break;
 	       case BIGINT_N:
@@ -506,6 +511,23 @@ Xclose(req)
 	sv_setnv(c_actv_sv, g_activcount);
 	sv_setiv(c_errc_sv, g_errorcode);
 	sv_setpv(c_emsg_sv, g_errormsg);
+    OUTPUT:
+	RETVAL
+
+ # Set the decimal precision for returned values.
+int
+Xdec_digits(sess, digits)
+    PROTOTYPE:$$
+    INPUT:
+	int		sess
+	int		digits
+    CODE:
+	if (digits > 38 || digits < 1) {
+	   warn("Decimal digits must be between 1 and 38\n");
+	} else {
+	   ((pSession) sess)->dbc.max_decimal_returned = digits;
+	}
+	RETVAL = 1;
     OUTPUT:
 	RETVAL
 
