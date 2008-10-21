@@ -18,7 +18,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw($activcount
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} }, "server_info" );
 
 our @EXPORT = qw();
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 #sub AUTOLOAD {
 #    # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -209,18 +209,6 @@ sub close {
  }
 
  return Xclose($rh->{req_id});
-}
-
-#--- Set maximum decimal digits.
-sub dec_digits {
- my ($ch, $digits) = @_;
- if ($ch->{htype} ne 'conn') {
-    Carp::carp "Invalid handle passed to open";
-    return 0;
- }
-
-#--- We just set this in the XS code; no call to the server.
- return Xdec_digits($ch->{'sess_id'}, $digits);
 }
 
 #--- Abort. This is an asynchronous abort request, not a ROLLBACK.

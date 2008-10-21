@@ -514,23 +514,6 @@ Xclose(req)
     OUTPUT:
 	RETVAL
 
- # Set the decimal precision for returned values.
-int
-Xdec_digits(sess, digits)
-    PROTOTYPE:$$
-    INPUT:
-	int		sess
-	int		digits
-    CODE:
-	if (digits > 38 || digits < 1) {
-	   warn("Decimal digits must be between 1 and 38\n");
-	} else {
-	   ((pSession) sess)->dbc.max_decimal_returned = digits;
-	}
-	RETVAL = 1;
-    OUTPUT:
-	RETVAL
-
  # ABORT (DBFABT)
 int
 Xabort(sess)
@@ -548,22 +531,23 @@ Xabort(sess)
 
  # SERVER_INFO (DBCHQE)
 void
-Xserver_info(server, item)
+Xserver_info(server, qepitem)
     PROTOTYPE:$$
     INPUT:
 	char *		server
-	int		item
+	int		qepitem
     PREINIT:
 	int             i, wint, string_len;
 	int             ok;
+	Byte		wbyte;
 	 /* DBCHQE request area */
 	DBCHQEP		our_qep;
 	 /* Data returned from DBCHQE */
 	Byte		hqe_ret_data[200];
-	struct QEPDBLIMIT_  our_dblimit;
 	Byte *		ret_ptr;
 	 /* Error message from DBCHQE */
 	char 		hqe_message[258];
+	struct QEPDBLIMIT_  our_dblimit;
     PPCODE:
 	c_msgl_sv = get_sv("Teradata::SQL::msglevel", FALSE);
 	c_errc_sv = get_sv("Teradata::SQL::errorcode", FALSE);
@@ -572,7 +556,7 @@ Xserver_info(server, item)
 
 	  /* Store the fields needed for the request. */
 	our_qep.qepLevel = QEPL10NLVL1;
-	our_qep.qepItem = item;
+	our_qep.qepItem = qepitem;
 	our_qep.qepTLen = strlen(server);
 	our_qep.qepTDP = (Int32) server;
 	our_qep.qepRALen = 200;
@@ -605,6 +589,7 @@ Xserver_info(server, item)
 	    case QEPICL2R:	/* CLIv2 Release Info */
 	    case QEPISU:	/* actual username */
 	    case QEPIRMR:	/* Message Release Query */
+	    case QEPIASL:	/* server default char set */
 	    case QEPIDCS:	/* server default char set */
 	      XPUSHs(sv_2mortal(newSVpv(our_qep.qepRArea,
 		 our_qep.qepRDLen)));
@@ -613,7 +598,7 @@ Xserver_info(server, item)
 	    case QEPIFLCS:	/* lang-conformance support */
 	    case QEPIFUCR:	/* updatable cursor support */
 	    case QEPIFRFI:	/* referential integ. support */
-	    case QEPIDTSM:	/* tx-semantics default */
+	    case QEPIDTSM:	/* tx_semantics default */
 	    case QEP64K:	/* 64KB parcel support */
 	    case QEPIFSSO:	/* SSO support */
 	    case QEPIFUPS:	/* Atomic UPSERT support */
@@ -627,15 +612,16 @@ Xserver_info(server, item)
 	    case QEPIESS:	/* Enhanced Statement Status */
 	    case QEPIUDT:	/* User-defined types */
 	    case QEPIRCA:	/* relaxed call arguments */
-	    case QEPIIDE:	/* MaxDecimalPrecision */
-	    case QEPIRID:	/* ReturnIdentityData */
 	      XPUSHs(sv_2mortal(newSVpv(our_qep.qepRArea, 1)));
 	      break;
 	    case QEPIDPF:	/* internal (V)AMP count */
 	    case QEPIDMSS:	/* MaxSegmentSize */
+	      wint = *((int *)our_qep.qepRArea);
+	      XPUSHs(sv_2mortal(newSViv(wint)));
+	      break;
 	    case QEPIEPU:	/* enlarged parcel (APH) support */
 	    case QEPIAPH:	/* APH responses */
-	      wint = *((int *)our_qep.qepRArea);
+	      wint = *((short int *)our_qep.qepRArea);
 	      XPUSHs(sv_2mortal(newSViv(wint)));
 	      break;
 	    case QEPITPR:	/* precision on timestamp */

@@ -22,3 +22,6 @@ Revision history for Perl extension Teradata::SQL.
 0.05  Thu Apr  3 11:25:12 2008
 	- Added dec_digits method.
 	- Clarified handling of large decimals.
+
+0.06  Tue Oct 21 11:12:51 2008
+	- Corrections to server_info.

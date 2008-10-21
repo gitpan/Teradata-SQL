@@ -803,12 +803,6 @@ int Zabort (
  return _fetch_all_parcels("ABORT", dbcp, 0);
 }
 
-/**
-DBCHQE (ReturnCode, ContextArea,DBCHQEP)
-Int32 *ReturnCode
-Int32 *ContextArea
-Int32 *DBCHQEP
-**/
 /*--------------------------------------------------------------------
 **  Get SERVER information (DBCHQE)
 **------------------------------------------------------------------*/
@@ -820,7 +814,7 @@ int Zserver_info (
  DBCHQE(&result,cnta, our_qep);
 
    /* Did Teradata issue an error message? */
- dbchqe_rc = result || our_qep->qepRC || our_qep->qepRC;
+ dbchqe_rc = result || our_qep->qepRC;
 
  if ( dbchqe_rc != 0 ) {
     g_errorcode = dbchqe_rc;
