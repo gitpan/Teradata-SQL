@@ -111,6 +111,16 @@ struct irq_ext {
  struct D8XIEP    irqx_IndicData_body;
 };
 
+ /* The following is the entire structure needed for segmented
+    requests. We need just one parcel: SP Options.
+    Header: IRX8. Level: 1. Element Type: 1 (inline). */
+
+struct seg_ext {
+ struct D8CAIRX   seg_header;
+ struct D8XIELEM  seg_SPOptions_elem;
+ struct D8XIEP    seg_SPOptions_body;
+};
+
 
  /* Function prototypes */
 int check_cli_error ( const char *, struct DBCAREA * );
@@ -125,6 +135,7 @@ int Zconnect ( pSession, char *, char *, char * );
 int Zdisconnect ( pSession );
 int Zexecute ( pSession, char * );
 int Zopen ( pRequest, char * );
+int Zopenseg ( pRequest, char *, char * );
 int Zexecutep ( pSession, char * );
 int Zexecutep_args ( pSession, char *, struct ModCliDataInfoType *,
   Byte *, int );

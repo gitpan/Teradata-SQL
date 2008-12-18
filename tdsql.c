@@ -176,6 +176,119 @@ void _simplify_prepinfo (
 }
 
 /*--------------------------------------------------------------------
+**  Convert data types from a DataInfo parcel to simplified types.
+**------------------------------------------------------------------*/
+void _simplify_datainfo (
+  struct datadescr * desc_ptr,
+  char * parcel )
+{
+ int   i;
+ int   nftr;  /* Number of fields to return */
+ struct CliDataInfoType * data_ptr;
+ PclWord    data_len;
+ char  col_name[33];
+
+ data_ptr = (struct CliDataInfoType *) parcel;
+
+ if (data_ptr->FieldCount <= MAX_FIELDS) {
+    nftr = desc_ptr->nfields = data_ptr->FieldCount;
+ } else {
+    nftr = desc_ptr->nfields = MAX_FIELDS;
+    fprintf(stderr, "Only the first %d fields will be processed\n",
+       MAX_FIELDS);
+ }
+
+ for (i = 0; i < nftr; i++) {
+    data_len = data_ptr->InfoVar[i].SQLLen;
+    switch (data_ptr->InfoVar[i].SQLType) {
+     case SMALLINT_NN:
+     case SMALLINT_N:
+        desc_ptr->sqlvar[i].sqltype = SMALLINT_N;
+        desc_ptr->sqlvar[i].dlb = sizeof(short);
+        break;
+     case VARCHAR_NN:
+     case VARCHAR_N:
+     case VARBYTE_NN:
+     case VARBYTE_N:
+     case VARGRAPHIC_NN:
+     case VARGRAPHIC_N:
+     case LONG_VARCHAR_NN:
+     case LONG_VARCHAR_N:
+     case LONG_VARBYTE_NN:
+     case LONG_VARBYTE_N:
+     case LONG_VARGRAPHIC_NN:
+     case LONG_VARGRAPHIC_N:
+        desc_ptr->sqlvar[i].sqltype = VARCHAR_N;
+        desc_ptr->sqlvar[i].datalen = data_len;
+        break;
+     case CHAR_NN:
+     case CHAR_N:
+     case BYTE_NN:
+     case BYTE_N:
+     case GRAPHIC_NN:
+     case GRAPHIC_N:
+        desc_ptr->sqlvar[i].sqltype = CHAR_N;
+        desc_ptr->sqlvar[i].datalen = data_len;
+        break;
+     case DATE_NN:
+     case DATE_N:
+     case INTEGER_NN:
+     case INTEGER_N:
+        desc_ptr->sqlvar[i].sqltype = INTEGER_N;
+        desc_ptr->sqlvar[i].dlb = sizeof(Int32);
+        break;
+     case DECIMAL_NN:
+     case DECIMAL_N:
+        desc_ptr->sqlvar[i].sqltype = DECIMAL_N;
+        desc_ptr->sqlvar[i].datalen  = data_len / 256;
+        if (desc_ptr->sqlvar[i].datalen >= 19)
+           desc_ptr->sqlvar[i].dlb = 16;
+        else if (desc_ptr->sqlvar[i].datalen >= 10)
+           desc_ptr->sqlvar[i].dlb = 8;
+        else if (desc_ptr->sqlvar[i].datalen >= 5)
+           desc_ptr->sqlvar[i].dlb = 4;
+        else if (desc_ptr->sqlvar[i].datalen >= 3)
+           desc_ptr->sqlvar[i].dlb = 2;
+        else
+           desc_ptr->sqlvar[i].dlb = 1;
+        desc_ptr->sqlvar[i].decscale = data_len % 256;
+        break;
+     case BIGINT_NN:
+     case BIGINT_N:
+        desc_ptr->sqlvar[i].sqltype = BIGINT_N;
+        desc_ptr->sqlvar[i].dlb = sizeof(Int64);
+        break;
+     case BLOB:
+     case BLOB_DEFERRED:
+     case BLOB_LOCATOR:
+     case CLOB:
+     case CLOB_DEFERRED:
+     case CLOB_LOCATOR:
+        desc_ptr->sqlvar[i].sqltype = BLOB;
+        desc_ptr->sqlvar[i].datalen = data_len;
+        break;
+     case BYTEINT_NN:
+     case BYTEINT_N:
+        desc_ptr->sqlvar[i].sqltype = BYTEINT_N;
+        desc_ptr->sqlvar[i].dlb = 1;
+        break;
+     case FLOAT_NN:
+     case FLOAT_N:
+        desc_ptr->sqlvar[i].sqltype = FLOAT_N;
+        desc_ptr->sqlvar[i].dlb = sizeof(double);
+        break;
+     default:
+        desc_ptr->sqlvar[i].sqltype = -1;
+        desc_ptr->sqlvar[i].datalen = 0;
+    }
+
+     /* DataInfo has no column names. */
+    sprintf(col_name, "Column %d\0", i+1);
+    strcpy(desc_ptr->sqlvar[i].colident, col_name);
+ }
+}
+
+/*--------------------------------------------------------------------
  *  Insert a decimal point into a "decimal" field.
  *------------------------------------------------------------------*/
 void _insert_dp (
@@ -379,6 +492,18 @@ int _fetch_parcel (
      }
      _simplify_prepinfo(&(req_ptr->ddesc), dbcp->fet_data_ptr);
      break;
+      /* If the current request is prepared (req_proc_opt 'B',
+         usually), we use the PrepInfo parcel and ignore DataInfo.
+         If it's just 'E', we use DataInfo.  */
+   case PclDATAINFO :
+     if (req_ptr == 0) {
+        fprintf(stderr, "Internal error in _fetch_parcel!\n");
+        return 0;
+     }
+     if (dbcp->req_proc_opt == 'E') {
+        _simplify_datainfo(&(req_ptr->ddesc), dbcp->fet_data_ptr);
+     }
+     break;
    default:
      ;
  } /* end switch */
@@ -497,6 +622,7 @@ int Zexecute (
  dbcp->change_opts = 'Y';
  dbcp->req_proc_opt = 'E';	/* Execute only */
  dbcp->i_req_id = 0;
+ dbcp->dbriSeg = 'N';
  dbcp->extension_pointer = 0;
  dbcp->req_ptr = sql_stmt;
  dbcp->req_len = strlen(sql_stmt);
@@ -523,6 +649,7 @@ int Zopen (
  dbcp->change_opts = 'Y';
  dbcp->req_proc_opt = 'B';	/* Prepare and execute */
  dbcp->i_req_id = 0;
+ dbcp->dbriSeg = 'N';
  dbcp->extension_pointer = 0;
  dbcp->req_ptr = sql_stmt;
  dbcp->req_len = strlen(sql_stmt);
@@ -545,6 +672,71 @@ int Zopen (
 }
 
 /*--------------------------------------------------------------------
+**  OPEN a segmented request
+**------------------------------------------------------------------*/
+int Zopenseg (
+  pRequest    req,
+  char * sql_stmt,
+  char * save_spl )
+{
+ int status, Elen;
+ struct seg_ext   ExtArea;
+ struct seg_ext * pExtArea;
+ struct DBCAREA * dbcp;
+ struct PclSPOptionsType  sp_opts;
+
+ dbcp = req->dbcp;
+
+ dbcp->change_opts = 'Y';
+ dbcp->req_proc_opt = 'E';	/* Only E is allowed for segments */
+ dbcp->keep_resp = 'N';
+ dbcp->dbriSeg = 'L';
+ dbcp->i_req_id = 0;
+ dbcp->req_ptr = sql_stmt;
+ dbcp->req_len = strlen(sql_stmt);
+
+  /* Set up the Extension area. */
+ dbcp->extension_pointer = &ExtArea;
+ pExtArea = &ExtArea;
+ Elen = sizeof( struct seg_ext );
+ memset( pExtArea, 0x00, Elen);
+
+ memcpy(pExtArea->seg_header.d8xiId, "IRX8", 4);
+ pExtArea->seg_header.d8xiNext = NULL;
+ pExtArea->seg_header.d8xiSize = Elen;
+ pExtArea->seg_header.d8xiLvl = 1;
+
+  /* SP Options parcel */
+ pExtArea->seg_SPOptions_elem.d8xieLen = sizeof(D8XIELEM) + sizeof(D8XIEP);
+  /* The manual says that Element Type 0 = Inline and 1 = Pointer,
+     but that seems to be incorrect. We are using pointers and 0. */
+ pExtArea->seg_SPOptions_elem.d8xieTyp = 0;
+ pExtArea->seg_SPOptions_body.d8xiepF = PclSPOPTIONSTYPE;
+ pExtArea->seg_SPOptions_body.d8xiepLn = 2;
+ pExtArea->seg_SPOptions_body.d8xiepPt = &( sp_opts.SPPrintOption );
+
+ sp_opts.Flavor = PclSPOPTIONSTYPE;
+ sp_opts.Length = sizeof(struct PclSPOptionsType);
+ sp_opts.SPPrintOption = 'N';   /* this is unused */
+ sp_opts.WithSPLText = save_spl[0];  /* Store the SPL */
+
+ dbcp->func = DBFIRQ;
+ DBCHCL(&result,cnta, dbcp);
+ if (check_cli_error("OPENSEG", dbcp) == 0)	return(0);
+
+ req->req_num = dbcp->o_req_id;
+ dbcp->i_req_id = dbcp->o_req_id;
+
+  /* Fetch only until we have the DataInfo parcel. */
+ status = 1;
+ while (dbcp->fet_parcel_flavor != PclDATAINFO && status == 1) {
+    status = _fetch_parcel("OPENSEG", dbcp, req);
+ }
+
+ return((status == 0) ? 0 : 1);
+}
+
+/*--------------------------------------------------------------------
 **  EXECUTE a Prepared request
 **------------------------------------------------------------------*/
 int Zexecutep (
@@ -558,6 +750,7 @@ int Zexecutep (
  dbcp->change_opts = 'Y';
  dbcp->req_proc_opt = 'E';	/* Execute only */
  dbcp->i_req_id = 0;
+ dbcp->dbriSeg = 'N';
  dbcp->extension_pointer = 0;
  dbcp->req_ptr = sql_stmt;
  dbcp->req_len = strlen(sql_stmt);
@@ -570,6 +763,7 @@ int Zexecutep (
 
  return _fetch_all_parcels("EXECUTEP", dbcp, 0);
 }
+
 
 /*--------------------------------------------------------------------
 **  EXECUTE a Prepared request with arguments
@@ -591,6 +785,7 @@ int Zexecutep_args (
  dbcp->change_opts = 'Y';
  dbcp->req_proc_opt = 'E';	/* Execute only */
  dbcp->i_req_id = 0;
+ dbcp->dbriSeg = 'N';
  dbcp->req_ptr = sql_stmt;
  dbcp->req_len = strlen(sql_stmt);
 
@@ -645,6 +840,7 @@ int Zopenp (
  dbcp->change_opts = 'Y';
  dbcp->req_proc_opt = 'B';	/* Prepare and execute */
  dbcp->i_req_id = 0;
+ dbcp->dbriSeg = 'N';
  dbcp->extension_pointer = 0;
  dbcp->req_ptr = sql_stmt;
  dbcp->req_len = strlen(sql_stmt);
@@ -686,6 +882,7 @@ int Zopenp_args (
  dbcp->change_opts = 'Y';
  dbcp->req_proc_opt = 'B';	/* Prepare and execute */
  dbcp->i_req_id = 0;
+ dbcp->dbriSeg = 'N';
  dbcp->req_ptr = sql_stmt;
  dbcp->req_len = strlen(sql_stmt);
 

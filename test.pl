@@ -188,3 +188,17 @@ sub is_ok {
 sub check_ec {
  return (Teradata::SQL::errorcode == 0);
 }
+
+
+#--- Was it okay?
+sub is_ok {
+ my ($cond, $n) = @_;
+
+ if ($cond) { print "ok $n\n"; }
+ else { print "not ok $n\n"; }
+}
+
+#--- Check the Teradata error code.
+sub check_ec {
+ return (Teradata::SQL::errorcode == 0);
+}

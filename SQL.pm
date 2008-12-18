@@ -18,7 +18,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw($activcount
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} }, "server_info" );
 
 our @EXPORT = qw();
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 #sub AUTOLOAD {
 #    # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -143,6 +143,34 @@ sub prepare {
 
  bless $self, 'Teradata::SQL';
  return $self;
+}
+
+#--- Open a segmented request. No input variables.
+sub openseg {
+ my ($ch, $sql, $save_spl) = @_;
+ if ($ch->{htype} ne 'conn') {
+    Carp::carp "Invalid handle passed to open";
+    return 0;
+ }
+ $sql =~ tr/\r/ /;
+ $save_spl = uc($save_spl || 'Y'),
+
+ my $self = {
+    htype => 'req',  # I am a request handle.
+    sess_id => $ch->{'sess_id'},
+    sql => $sql,
+    save_spl => $save_spl,
+ };
+
+ my $req_id = Xopenseg($ch->{sess_id}, $sql, $save_spl);
+
+ if ( $req_id != 0 ) {
+    $self->{'req_id'} = $req_id;
+    bless $self, 'Teradata::SQL';
+    return $self;
+ } else {
+    return undef;
+ }
 }
 
 #--- Execute a prepared request (no data returned).  May have arguments.
@@ -370,6 +398,23 @@ See the CLIv2 Reference, s.v. "PrepInfo Parcel".
 
 Request method. Closes the cursor. This should always be called
 after opening and fetching the results.
+
+=item B<openseg> REQUEST [SAVE_SPL]
+
+Connection method. Opens a request for execution in segments.
+This method can be used only for compiling stored procedures.
+Currently it is limited to only one segment, so the entire text of
+the procedure must be passed at once. Be sure that the length of
+the text is within the limit returned by QEPIDMSS (item 11; see
+L<"server_info">).
+
+The optional second argument is 'Y' if you wish to save the stored
+procedure text in the database, 'N' otherwise. The default is 'Y'.
+
+The same rules apply as for open(). If the request succeeds, no
+rows will be returned, but if it fails error messages will be
+returned. You should therefore run fetchrow_list() and close()
+as usual after issuing the request.
 
 =item B<dec_digits> N
 

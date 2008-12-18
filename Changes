@@ -25,3 +25,6 @@ Revision history for Perl extension Teradata::SQL.
 
 0.06  Tue Oct 21 11:12:51 2008
 	- Corrections to server_info.
+
+0.07  Thu Dec 18 13:35:07 2008
+	- Added support for segmented requests.

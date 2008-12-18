@@ -1,5 +1,5 @@
-Teradata::SQL version 0.05
-==========================
+Teradata::SQL
+=============
 
 Teradata::SQL is a Perl interface to Teradata SQL. It does not attempt
 to be a complete interface to Teradata -- for instance, it does not
@@ -47,8 +47,8 @@ This module requires:
    a C compiler
    CLIv2
 
-At present, the module has been tested only on Solaris, MP-RAS,
-AIX, and Windows 2003 Server. The Windows support is incomplete;
+The module has been tested on Solaris, MP-RAS, AIX, Linux (SLES),
+Windows 2003 Server, and WinXP. The Windows support is incomplete;
 see WINNOTES.  Those who are able to test it on earlier versions
 of Perl or other platforms are welcome to collaborate.
 

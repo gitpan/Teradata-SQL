@@ -230,6 +230,49 @@ Xexecutep(sess, sql, ...)
     OUTPUT:
 	RETVAL
 
+ # OPEN without arguments, segmented
+int
+Xopenseg(sess, sql, save_spl)
+    PROTOTYPE:$$
+    INPUT:
+	int		sess
+	char *		sql
+	char *		save_spl
+    PREINIT:
+	pRequest        req_ptr;
+	 /* using_r0 = are we using request0 during this call? */
+	int             using_r0, ok;
+    CODE:
+	g_msglevel = SvIV(c_msgl_sv);
+	if (r0_in_use) {
+	   using_r0 = 0;
+	   New(0, req_ptr, 1, Request);
+	} else {
+	   using_r0 = 1;
+	   req_ptr = &request0;
+	   r0_in_use = 1;
+	}
+	req_ptr->dbcp = &(((pSession) sess)->dbc);
+
+	ok = Zopenseg(req_ptr, sql, save_spl);
+	if (ok) {
+	   RETVAL = (int)req_ptr;
+	} else {
+	   RETVAL = 0;
+	   if (using_r0) {
+	      memset(&request0, 0x00, sizeof(Request));
+	      r0_in_use = 0;
+	   } else {
+	      Safefree(req_ptr);
+	   }
+	}
+
+	sv_setnv(c_actv_sv, g_activcount);
+	sv_setiv(c_errc_sv, g_errorcode);
+	sv_setpv(c_emsg_sv, g_errormsg);
+    OUTPUT:
+	RETVAL
+
  # OPEN a prepared request with optional arguments
 int
 Xopenp(sess, sql, ...)
@@ -537,14 +580,14 @@ Xserver_info(server, qepitem)
 	char *		server
 	int		qepitem
     PREINIT:
-	int             i, wint, string_len;
+	int             wint, string_len;
 	int             ok;
-	Byte		wbyte;
 	 /* DBCHQE request area */
 	DBCHQEP		our_qep;
 	 /* Data returned from DBCHQE */
 	Byte		hqe_ret_data[200];
-	Byte *		ret_ptr;
+	char *		RArea_char_ptr;
+	char *		ret_ptr;
 	 /* Error message from DBCHQE */
 	char 		hqe_message[258];
 	struct QEPDBLIMIT_  our_dblimit;
@@ -567,31 +610,29 @@ Xserver_info(server, qepitem)
 
 	ok = Zserver_info(&our_qep);
 	if (ok) {
+	   RArea_char_ptr = (char *) our_qep.qepRArea;
 	   switch (our_qep.qepItem) {
 	    case QEPIDBR:	/* DBS release info */
 	      /* Returned to perl as a two-element list */
-	      ret_ptr = our_qep.qepRArea;
+	      ret_ptr = RArea_char_ptr;
 	      for (string_len=0; string_len < 30; string_len++) {
 		 if (*ret_ptr == ' ') break;
 		 else ret_ptr++;
 	      }
-	      XPUSHs(sv_2mortal(newSVpv(our_qep.qepRArea,
-		 string_len)));
-	      ret_ptr = our_qep.qepRArea + 30;
+	      XPUSHs(sv_2mortal(newSVpv(RArea_char_ptr, string_len)));
+	      RArea_char_ptr += 30;
+	      ret_ptr = RArea_char_ptr;
 	      for (string_len=0; string_len < 32; string_len++) {
 		 if (*ret_ptr == ' ') break;
 		 else ret_ptr++;
 	      }
-	      XPUSHs(sv_2mortal(newSVpv(our_qep.qepRArea + 30,
-		 string_len)));
+	      XPUSHs(sv_2mortal(newSVpv(RArea_char_ptr, string_len)));
 	      break;
 	    case QEPISC:	/* char set */
 	    case QEPICL2R:	/* CLIv2 Release Info */
-	    case QEPISU:	/* actual username */
-	    case QEPIRMR:	/* Message Release Query */
 	    case QEPIASL:	/* server default char set */
 	    case QEPIDCS:	/* server default char set */
-	      XPUSHs(sv_2mortal(newSVpv(our_qep.qepRArea,
+	      XPUSHs(sv_2mortal(newSVpv(RArea_char_ptr,
 		 our_qep.qepRDLen)));
 	      break;
 	    case QEPIFTSM:	/* transaction semantics */
@@ -608,7 +649,6 @@ Xserver_info(server, qepitem)
 	    case QEPIXRS:	/* extended response support */
 	    case QEPIUD:	/* Identity Column Support */
 	    case QEPIRPO:	/* cursor positioning sup. */
-	    case QEPIENC:	/* data encryption */
 	    case QEPIESS:	/* Enhanced Statement Status */
 	    case QEPIUDT:	/* User-defined types */
 	    case QEPIRCA:	/* relaxed call arguments */
@@ -625,9 +665,9 @@ Xserver_info(server, qepitem)
 	      XPUSHs(sv_2mortal(newSViv(wint)));
 	      break;
 	    case QEPITPR:	/* precision on timestamp */
-	      wint = *((short *)our_qep.qepRArea);
+	      wint = *((short *)RArea_char_ptr);
 	      XPUSHs(sv_2mortal(newSViv(wint)));
-	      wint = *((short *)(our_qep.qepRArea + 2));
+	      wint = *((short *)(RArea_char_ptr + 2));
 	      XPUSHs(sv_2mortal(newSViv(wint)));
 	      break;
 	    case QEPISQL:	/* SQL limits */
