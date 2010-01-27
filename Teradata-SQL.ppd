@@ -1,0 +1,10 @@
+<SOFTPKG NAME="Teradata-SQL" VERSION="0,09,0,0">
+    <TITLE>Teradata-SQL</TITLE>
+    <ABSTRACT>Perl interface to Teradata SQL (CLIv2)</ABSTRACT>
+    <AUTHOR>Geoffrey Rommel &lt;GROMMEL@cpan.org&gt;</AUTHOR>
+    <IMPLEMENTATION>
+        <OS NAME="MSWin32" />
+        <ARCHITECTURE NAME="MSWin32-x86-multi-thread-5.10" />
+        <CODEBASE HREF="Teradata-SQL-0.09.tar.gz" />
+    </IMPLEMENTATION>
+</SOFTPKG>
