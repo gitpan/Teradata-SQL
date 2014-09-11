@@ -45,6 +45,8 @@ typedef signed char  ByteInt;
 #define LONG_VARCHAR_N  457
 #define LONG_VARGRAPHIC_NN      472
 #define LONG_VARGRAPHIC_N       473
+#define NUMBER_NN       604
+#define NUMBER_N        605
 #define SMALLINT_NN     500
 #define SMALLINT_N      501
 #define VARBYTE_NN      688
@@ -128,10 +130,12 @@ void _simplify_prepinfo ( struct datadescr *, char * );
 void _insert_dp ( char *, char *, int );
 double _dec_to_double ( Byte *, int, int );
 void _dec_to_string ( char *, Byte *, int );
+double _num_to_double ( Byte * );
+void _num_to_string ( char *, Byte * );
 void set_options ( struct DBCAREA * );
 int _fetch_parcel ( const char *, struct DBCAREA *, pRequest );
 int _fetch_all_parcels ( const char *, struct DBCAREA *, pRequest );
-int Zconnect ( pSession, char *, char *, char * );
+int Zconnect ( pSession, char *, char *, char *, char * );
 int Zdisconnect ( pSession );
 int Zexecute ( pSession, char * );
 int Zopen ( pRequest, char * );

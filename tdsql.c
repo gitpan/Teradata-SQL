@@ -1,9 +1,9 @@
 /*--------------------------------------------------------------------
-** Teradata::SQL
-** C routines with CLI calls
-** These routines, like many Perl routines, return 1 for success
-** and 0 for failure.
-**------------------------------------------------------------------*/
+ * Teradata::SQL
+ * C routines with CLI calls
+ * These routines, like many Perl routines, return 1 for success
+ * and 0 for failure.
+ *------------------------------------------------------------------*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -14,8 +14,8 @@ static Int32  result;
 static char   cnta[4];
 
 /*--------------------------------------------------------------------
-** Global variables from SQL.xs
-**------------------------------------------------------------------*/
+ * Global variables from SQL.xs
+ *------------------------------------------------------------------*/
 
 extern int g_msglevel;
 extern double g_activcount;
@@ -23,8 +23,8 @@ extern int g_errorcode;
 extern char g_errormsg[260];
 
 /*--------------------------------------------------------------------
-** Powers of 10
-**------------------------------------------------------------------*/
+ * Powers of 10
+ *------------------------------------------------------------------*/
 
 static double powers10[19] = {
   1.0, 10.0, 100.0, 1000.0, 10000.0,
@@ -33,9 +33,9 @@ static double powers10[19] = {
 
 
 /*--------------------------------------------------------------------
-** Error checking routine for CLI calls. Return 0 if there was an
-** error, 1 otherwise.
-**------------------------------------------------------------------*/
+ * Error checking routine for CLI calls. Return 0 if there was an
+ * error, 1 otherwise.
+ *------------------------------------------------------------------*/
 int check_cli_error (
   const char * sql_command,
   struct DBCAREA * dbc )
@@ -54,8 +54,8 @@ int check_cli_error (
 }
 
 /*--------------------------------------------------------------------
-**  Convert data types from a PrepInfo parcel to simplified types.
-**------------------------------------------------------------------*/
+ *  Convert data types from a PrepInfo parcel to simplified types.
+ *------------------------------------------------------------------*/
 void _simplify_prepinfo (
   struct datadescr * desc_ptr,
   char * parcel )
@@ -133,6 +133,13 @@ void _simplify_prepinfo (
            desc_ptr->sqlvar[i].dlb = 1;
         desc_ptr->sqlvar[i].decscale = col_info->DataLen % 256;
         break;
+     case NUMBER_NN:
+     case NUMBER_N:
+        desc_ptr->sqlvar[i].sqltype = NUMBER_N;
+        desc_ptr->sqlvar[i].datalen  = col_info->DataLen / 256;
+        desc_ptr->sqlvar[i].decscale = col_info->DataLen % 256;
+        desc_ptr->sqlvar[i].dlb = 20;  /* Maximum size */
+        break;
      case BIGINT_NN:
      case BIGINT_N:
         desc_ptr->sqlvar[i].sqltype = BIGINT_N;
@@ -176,8 +183,8 @@ void _simplify_prepinfo (
 }
 
 /*--------------------------------------------------------------------
-**  Convert data types from a DataInfo parcel to simplified types.
-**------------------------------------------------------------------*/
+ *  Convert data types from a DataInfo parcel to simplified types.
+ *------------------------------------------------------------------*/
 void _simplify_datainfo (
   struct datadescr * desc_ptr,
   char * parcel )
@@ -200,6 +207,7 @@ void _simplify_datainfo (
 
  for (i = 0; i < nftr; i++) {
     data_len = data_ptr->InfoVar[i].SQLLen;
+
     switch (data_ptr->InfoVar[i].SQLType) {
      case SMALLINT_NN:
      case SMALLINT_N:
@@ -252,6 +260,13 @@ void _simplify_datainfo (
         else
            desc_ptr->sqlvar[i].dlb = 1;
         desc_ptr->sqlvar[i].decscale = data_len % 256;
+        break;
+     case NUMBER_NN:
+     case NUMBER_N:
+        desc_ptr->sqlvar[i].sqltype = NUMBER_N;
+        desc_ptr->sqlvar[i].datalen  = data_len / 256;
+        desc_ptr->sqlvar[i].decscale = data_len % 256;
+        desc_ptr->sqlvar[i].dlb = 20;  /* Maximum size */
         break;
      case BIGINT_NN:
      case BIGINT_N:
@@ -344,9 +359,9 @@ void _insert_dp (
 
 
 /*--------------------------------------------------------------------
-**  Convert a decimal field to a double.  This works only on
-**  fields of 9 digits or less.
-**------------------------------------------------------------------*/
+ *  Convert a decimal field to a double.  This works only on
+ *  fields of 9 digits or less.
+ *------------------------------------------------------------------*/
 double _dec_to_double (
   Byte * dec_data,
   int     decp,
@@ -370,8 +385,8 @@ double _dec_to_double (
 }
 
 /*--------------------------------------------------------------------
-**  Convert a decimal field (10 or more digits) to a string.
-**------------------------------------------------------------------*/
+ *  Convert a decimal field (10 or more digits) to a string.
+ *------------------------------------------------------------------*/
 #ifdef _MSC_VER
  /*---------------------- Microsoft Visual C++ */
 void _dec_to_string (
@@ -403,8 +418,109 @@ void _dec_to_string (
 #endif
 
 /*--------------------------------------------------------------------
-**  Set CLI options.
-**------------------------------------------------------------------*/
+ *  Convert a NUMBER field to a double.  This works on values with
+ *  mantissas of 7 bytes or less.
+ *------------------------------------------------------------------*/
+double _num_to_double (
+  Byte * num_data )
+{
+#ifdef _MSC_VER
+ /*---------------------- Microsoft Visual C++ */
+ __int64  wlonglong;
+#else
+ /*---------------------- Others */
+ Int64  wlonglong;
+#endif
+ double  wdouble;
+ Byte   n_length;
+ Int16  n_scale;
+
+ n_length = *num_data;
+ n_scale = *((Int16 *) (num_data+1));
+
+ if (n_length == 0) {
+    wdouble = 0.0;
+ } else {
+    wlonglong = 0;
+     /* Check for negative value. */
+    if ((*(num_data + n_length)) & 0x80) {
+       wlonglong = -1;
+    }
+    memcpy(&wlonglong, num_data+3, n_length - 2);
+
+    wdouble = (double) wlonglong;
+    if (n_scale > 0)
+       wdouble /= powers10[n_scale];
+ }
+
+ return wdouble;
+}
+
+/*--------------------------------------------------------------------
+ *  Convert a NUMBER field (mantissa up to 8 bytes) to a string.
+ *------------------------------------------------------------------*/
+#ifdef _MSC_VER
+ /*---------------------- Microsoft Visual C++ */
+void _num_to_string (
+  char *  res_string,
+  Byte * num_data )
+{
+ __int64  wlonglong;
+ Byte   n_length;
+
+ n_length = *num_data;
+ n_scale = *((short int *) num_data+1);
+
+  /* The length appears to be the length of the value EXCLUSIVE
+     of the leading length byte. */
+
+ if (n_length == 0) {
+    strcpy(res_string, "0");
+ } else {
+    wlonglong = 0;
+     /* Check for negative value. */
+    if ((*(num_data + n_length)) & 0x80) {
+       wlonglong = -1;
+    }
+    memcpy(&wlonglong, num_data+3, n_length - 2);
+
+    sprintf(wstring, "%I64d", wlonglong);
+    _insert_dp(res_string, wstring, n_scale);
+ }
+}
+#else
+ /*---------------------- Others */
+void _num_to_string (
+  char *  res_string,
+  Byte * num_data )
+{
+ Int64  wlonglong;
+ Byte   n_length;
+ Int16  n_scale;
+ char   wstring[24];
+
+ n_length = *num_data;
+ n_scale = *((Int16 *) (num_data+1));
+
+ if (n_length == 0) {
+    strcpy(res_string, "0");
+ } else {
+    wlonglong = 0;
+     /* Check for negative value. */
+    if ((*(num_data + n_length)) & 0x80) {
+       wlonglong = -1;
+    }
+    memcpy(&wlonglong, num_data+3, n_length - 2);
+
+    sprintf(wstring, "%lld", wlonglong);
+    _insert_dp(res_string, wstring, n_scale);
+ }
+}
+#endif
+
+/*--------------------------------------------------------------------
+ *  Set CLI options.
+ *------------------------------------------------------------------*/
 void set_options ( struct DBCAREA * dbcp )
 {
   dbcp->change_opts = 'Y';
@@ -431,9 +547,9 @@ void set_options ( struct DBCAREA * dbcp )
 }
 
 /*--------------------------------------------------------------------
-**  Fetch a single parcel. Return 0 if a failure|error parcel was
-**  found, 1 if a non-error, 2 if no parcels are left.
-**------------------------------------------------------------------*/
+ *  Fetch a single parcel. Return 0 if a failure|error parcel was
+ *  found, 1 if a non-error, 2 if no parcels are left.
+ *------------------------------------------------------------------*/
 int _fetch_parcel (
   const char * sql_command,
   struct DBCAREA * dbcp,
@@ -482,7 +598,7 @@ int _fetch_parcel (
      strcpy(g_errormsg, "");
      pcl_success_ptr = (struct CliSuccessType *) dbcp->fet_data_ptr;
       /* Store the ActivityCount in a double. Unfortunately, this
-         is defined as char[4] rather than unsigned int. */
+ *          is defined as char[4] rather than unsigned int. */
      memcpy(&lcl_activcount, pcl_success_ptr->ActivityCount, 4);
      g_activcount = (double) lcl_activcount;
      break;
@@ -494,8 +610,8 @@ int _fetch_parcel (
      _simplify_prepinfo(&(req_ptr->ddesc), dbcp->fet_data_ptr);
      break;
       /* If the current request is prepared (req_proc_opt 'B',
-         usually), we use the PrepInfo parcel and ignore DataInfo.
-         If it's just 'E', we use DataInfo.  */
+ *          usually), we use the PrepInfo parcel and ignore DataInfo.
+ *                   If it's just 'E', we use DataInfo.  */
    case PclDATAINFO :
      if (req_ptr == 0) {
         fprintf(stderr, "Internal error in _fetch_parcel!\n");
@@ -513,8 +629,8 @@ int _fetch_parcel (
 }
 
 /*--------------------------------------------------------------------
-**  Fetch all parcels after a query
-**------------------------------------------------------------------*/
+ *  Fetch all parcels after a query
+ *------------------------------------------------------------------*/
 int _fetch_all_parcels (
   const char * sql_command,
   struct DBCAREA * dbcp,
@@ -539,15 +655,18 @@ int _fetch_all_parcels (
 }
 
 /*--------------------------------------------------------------------
-**  CONNECT
-**------------------------------------------------------------------*/
+ *  CONNECT
+ *------------------------------------------------------------------*/
 int Zconnect (
   pSession sess_ptr,
   char * logonstring,
   char * ccs,
-  char * trx_mode )
+  char * trx_mode,
+  char * i_logmech )
 {
  struct DBCAREA * dbcp;
+ char logmech[9];
+ int  i;
 
  dbcp = &(sess_ptr->dbc);
 
@@ -567,8 +686,26 @@ int Zconnect (
  dbcp->charset_type = 'N';
  dbcp->inter_ptr = sess_ptr->ccs;  /* Client character set */
 
- dbcp->logon_ptr = logonstring;
- dbcp->logon_len = strlen(logonstring);
+  /* If the user specified a logon mechanism, use it; otherwise,
+ *      use an ordinary TD2 logon string. */
+ strcpy(logmech, "        ");
+ for (i = 0; i < strlen(i_logmech); i++) {
+    logmech[i] = i_logmech[i];
+    if (i==7) break;
+ }
+
+ if (strncmp(logmech, "    ", 4) == 0) {
+    dbcp->logon_ptr = logonstring;
+    dbcp->logon_len = strlen(logonstring);
+ } else {
+    memcpy(dbcp->logmech_name, logmech, 8);
+ /*   dbcp->logmech_data_ptr = logonstring;
+ *       dbcp->logmech_data_len = strlen(logonstring); */
+    dbcp->logon_ptr = logonstring;
+    dbcp->logon_len = strlen(logonstring);
+    dbcp->logmech_data_ptr = 0;
+    dbcp->logmech_data_len = 0;
+ }
  dbcp->func = DBFCON;
 
  DBCHCL(&result,cnta, dbcp);
@@ -581,8 +718,8 @@ int Zconnect (
 }
 
 /*--------------------------------------------------------------------
-**  DISCONNECT (LOGOFF)
-**------------------------------------------------------------------*/
+ *  DISCONNECT (LOGOFF)
+ *------------------------------------------------------------------*/
 int Zdisconnect (
   pSession sess )
 {
@@ -610,8 +747,8 @@ int Zdisconnect (
 }
 
 /*--------------------------------------------------------------------
-**  EXECUTE (no data returned)
-**------------------------------------------------------------------*/
+ *  EXECUTE (no data returned)
+ *------------------------------------------------------------------*/
 int Zexecute (
   pSession   sess,
   char * sql_stmt )
@@ -636,8 +773,8 @@ int Zexecute (
 }
 
 /*--------------------------------------------------------------------
-**  OPEN a request.
-**------------------------------------------------------------------*/
+ *  OPEN a request.
+ *------------------------------------------------------------------*/
 int Zopen (
   pRequest   req,
   char * sql_stmt )
@@ -673,8 +810,8 @@ int Zopen (
 }
 
 /*--------------------------------------------------------------------
-**  OPEN a segmented request
-**------------------------------------------------------------------*/
+ *  OPEN a segmented request
+ *------------------------------------------------------------------*/
 int Zopenseg (
   pRequest    req,
   char * sql_stmt,
@@ -710,7 +847,7 @@ int Zopenseg (
   /* SP Options parcel */
  pExtArea->seg_SPOptions_elem.d8xieLen = sizeof(D8XIELEM) + sizeof(D8XIEP);
   /* The manual says that Element Type 0 = Inline and 1 = Pointer,
-     but that seems to be incorrect. We are using pointers and 0. */
+ *      but that seems to be incorrect. We are using pointers and 0. */
  pExtArea->seg_SPOptions_elem.d8xieTyp = D8XIETP;
  pExtArea->seg_SPOptions_body.d8xiepF = PclSPOPTIONSTYPE;
  pExtArea->seg_SPOptions_body.d8xiepLn = 2;
@@ -738,8 +875,8 @@ int Zopenseg (
 }
 
 /*--------------------------------------------------------------------
-**  EXECUTE a Prepared request
-**------------------------------------------------------------------*/
+ *  EXECUTE a Prepared request
+ *------------------------------------------------------------------*/
 int Zexecutep (
   pSession   sess,
   char * sql_stmt )
@@ -767,8 +904,8 @@ int Zexecutep (
 
 
 /*--------------------------------------------------------------------
-**  EXECUTE a Prepared request with arguments
-**------------------------------------------------------------------*/
+ *  EXECUTE a Prepared request with arguments
+ *------------------------------------------------------------------*/
 int Zexecutep_args (
   pSession    sess,
   char * sql_stmt,
@@ -803,7 +940,7 @@ int Zexecutep_args (
   /* DataInfo parcel */
  pExtArea->irqx_DataInfo_elem.d8xieLen = sizeof(D8XIELEM) + sizeof(D8XIEP);
   /* The manual says that Element Type 0 = Inline and 1 = Pointer,
-     but that seems to be incorrect. We are using pointers and 0. */
+ *      but that seems to be incorrect. We are using pointers and 0. */
  /**pExtArea->irqx_DataInfo_elem.d8xieTyp = 1;  Pointer method **/
  pExtArea->irqx_DataInfo_elem.d8xieTyp = 0;
 
@@ -828,8 +965,8 @@ int Zexecutep_args (
 }
 
 /*--------------------------------------------------------------------
-**  OPEN a prepared request.
-**------------------------------------------------------------------*/
+ *  OPEN a prepared request.
+ *------------------------------------------------------------------*/
 int Zopenp (
   pRequest   req,
   char * sql_stmt )
@@ -865,8 +1002,8 @@ int Zopenp (
 }
 
 /*--------------------------------------------------------------------
-**  OPEN a Prepared request with arguments
-**------------------------------------------------------------------*/
+ *  OPEN a Prepared request with arguments
+ *------------------------------------------------------------------*/
 int Zopenp_args (
   pRequest    req,
   char * sql_stmt,
@@ -901,7 +1038,7 @@ int Zopenp_args (
   /* DataInfo parcel */
  pExtArea->irqx_DataInfo_elem.d8xieLen = sizeof(D8XIELEM) + sizeof(D8XIEP);
   /* The manual says that Element Type 0 = Inline and 1 = Pointer,
-     but that seems to be incorrect. We are using pointers and 0. */
+ *      but that seems to be incorrect. We are using pointers and 0. */
  pExtArea->irqx_DataInfo_elem.d8xieTyp = 0;
 
  pExtArea->irqx_DataInfo_body.d8xiepF = PclDATAINFO; /* Flavor */
@@ -932,8 +1069,8 @@ int Zopenp_args (
 }
 
 /*--------------------------------------------------------------------
-**  FETCH (one record)
-**------------------------------------------------------------------*/
+ *  FETCH (one record)
+ *------------------------------------------------------------------*/
 char * Zfetch (
   pRequest  req )
 {
@@ -945,14 +1082,14 @@ char * Zfetch (
  dbcp->change_opts = 'N';
  dbcp->i_req_id = req->req_num;
 
-  /*------------------------------------------------------------------
-    Fetch the record. There are five possible parcels.
-    PrepInfo or DataInfo: keep reading until we get a Record.
-    Record: return it.
-    EndStatement: keep reading until the next Record or EndRequest.
-    EndRequest: return a null pointer ("end of file").
-    anything else: unexpected; return a null pointer.
-  **----------------------------------------------------------------*/
+ /*------------------------------------------------------------------
+ * Fetch the record. There are five possible parcels.
+ *  PrepInfo or DataInfo: keep reading until we get a Record.
+ *  Record: return it.
+ *  EndStatement: keep reading until the next Record or EndRequest.
+ *  EndRequest: return a null pointer ("end of file").
+ *  anything else: unexpected; return a null pointer.
+ **----------------------------------------------------------------*/
 
  status = 1;
 
@@ -974,8 +1111,8 @@ char * Zfetch (
 }
 
 /*--------------------------------------------------------------------
-**  CLOSE
-**------------------------------------------------------------------*/
+ *  CLOSE
+ *------------------------------------------------------------------*/
 int Zclose (
   pRequest   req )
 {
@@ -995,10 +1132,10 @@ int Zclose (
 }
 
 /*--------------------------------------------------------------------
-**  ABORT (asynchronous)
-**------------------------------------------------------------------*/
+ *  ABORT (asynchronous)
+ *------------------------------------------------------------------*/
 int Zabort (
-  pSession sess )
+ pSession sess )
 {
  struct DBCAREA * dbcp;
 
@@ -1013,8 +1150,8 @@ int Zabort (
 }
 
 /*--------------------------------------------------------------------
-**  Get SERVER information (DBCHQE)
-**------------------------------------------------------------------*/
+ *  Get SERVER information (DBCHQE)
+ *------------------------------------------------------------------*/
 int Zserver_info (
   DBCHQEP * our_qep )
 {
@@ -1040,3 +1177,4 @@ int Zserver_info (
   /* Otherwise, all is well. */
  return(1);
 }
+

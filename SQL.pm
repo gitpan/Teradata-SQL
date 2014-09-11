@@ -18,7 +18,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw($activcount
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} }, "server_info" );
 
 our @EXPORT = qw();
-our $VERSION = '0.10';
+our $VERSION = '0.12';
 
 #sub AUTOLOAD {
 #    # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -46,7 +46,8 @@ bootstrap Teradata::SQL $VERSION;
 
 #--- Connect. Returns a connection handle or undef.
 sub connect {
- my ($logonstring, $ccs, $trx_mode) = @_;
+ my ($logonstring, $ccs, $trx_mode, $conhash) = @_;
+ my $logmech;
 
  $ccs ||= "ASCII";
  $ccs = uc($ccs);
@@ -56,15 +57,18 @@ sub connect {
    unless $trx_mode =~ /^(BTET|ANSI)$/i;
  $trx_mode = uc($trx_mode);
 
+ $logmech = $conhash->{'logmech'} || "";
+
  my $self = {
     htype => 'conn',  # I am a connection handle.
 # We don't want the logonstring sticking around in memory, so we
 # don't save it in the hash.
     ccs => $ccs,
     trx_mode => $trx_mode,
+    logmech => $logmech,
  };
 
- my $sess_id = Xconnect($logonstring, $ccs, $trx_mode);
+ my $sess_id = Xconnect($logonstring, $ccs, $trx_mode, $logmech);
  $logonstring = 'x' x 40;
 
  if ( $sess_id eq "NO SESS" ) {
@@ -300,7 +304,7 @@ If there is no row to be fetched, they return an empty list.
 
 =over 4
 
-=item B<Teradata::SQL::connect> LOGONSTRING [CHARSET] [TRANMODE]
+=item B<Teradata::SQL::connect> LOGONSTRING [CHARSET] [TRANMODE] [HASH]
 
 Connects to Teradata. The first argument is a standard Teradata logon
 string in the form "[server/]user,password[,'account']".
@@ -309,6 +313,13 @@ session, 'ASCII' by default. The most common character sets besides
 ASCII are 'UTF8' and 'UTF16'.
 The third argument (optional) is the session transaction mode, either
 'BTET' (the default) or 'ANSI'.
+
+The fourth argument is a hash that can contain additional parameters.
+The only parameter currently supported is 'logmech', for specifying
+a logon mechanism. Example:
+
+  $dbh = Teradata::SQL::connect($TDLOGON, 'ASCII','BTET',
+   {'logmech'=>'ldap'} )   or die "Could not connect";
 
 This method returns a connection handle that must be used for future
 requests. If the connection fails, undef will be returned. Many
@@ -553,20 +564,20 @@ By default, times and timestamps are returned as character
 strings in their default formats. Again, you can cast them
 as you wish in your select request.
 
-A word of caution is in order about decimal fields and
-bigints.
-Decimal fields with a precision of 9 or lower will be
+A word of caution is in order about decimal columns, bigints,
+and number columns.
+Decimal columns with a precision of 9 or lower will be
 converted to doubles (numeric) and will behave more or less
 as expected, with the usual caveats about floating-point
-arithmetic. Decimal fields with a higher precision (10-18 digits),
+arithmetic. Decimal columns with a higher precision (10-18 digits),
 as well as bigints,
 will be converted to character strings. This has the advantage
 of preserving their full precision, but it means that Perl
 will not treat them as numeric. To convert them to numeric
-fields, you can add 0 to them, but values with 16 or more
+columns, you can add 0 to them, but values with 16 or more
 significant digits will lose precision. You have been warned!
 
-Decimal fields of more than 18 digits are not supported.
+Decimal columns of more than 18 digits are not supported.
 If they are returned from the database, the module will issue
 a warning and substitute a 0 in their place. (This warning
 will not appear if msglevel is 0.)
@@ -575,13 +586,18 @@ them to strings, e.g. like this:
 
    cast(cast(large_dec as format '-(30)9.99') as varchar(40))
 
+Similar cautions apply to NUMBER columns: those with mantissas
+of 1-56 bits will be converted to numeric, those with mantissas of
+64 bits will be converted to character strings, and larger numbers
+are not supported.
+
 Arguments passed to Teradata via B<openp> and B<executep> will
 be passed in Perl internal form (integer, double, or byte
 string). You can pass undefs to become nulls in the database, but
 there are limitations. Since all undefs look the same to the module,
 it coerces them all to integers. This works for most data types,
 but Teradata will not allow integer nulls to be placed in BYTE,
-TIME, or TIMESTAMP fields. At present, the only workaround for this
+TIME, or TIMESTAMP columns. At present, the only workaround for this
 situation would be to eschew parameter markers for the nulls and
 hard-code the nulls to be of the type you want.
 In other words, instead of this:
@@ -601,7 +617,7 @@ The maximum length of a request to be prepared is 64 Kbytes.
 The maximum length of data to be returned is 65400 bytes.
 These limits cannot be relaxed without rewriting the module.
 
-The maximum number of fields selected or returned by any request
+The maximum number of columns selected or returned by any request
 is 520. Likewise, you can pass no more than 520 arguments to
 B<openp> or B<executep>.  If these limitations are too strict,
 you can ask your Perl administrator to change the value of
@@ -620,6 +636,7 @@ The following Teradata features are not supported:
    Asynchronous requests
    WITH clause
    LOB data types
+   Arrays
    CHECKPOINT
    DESCRIBE
    ECHO

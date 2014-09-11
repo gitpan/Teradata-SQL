@@ -47,3 +47,9 @@ Revision history for Perl extension Teradata::SQL.
 	  the actual struct as an SV. Required because under a 64-bit
 	  OS a pointer is not necessarily the same size as an int.
 	- Changed several longs to Int32, unsigned long to UInt32, etc.
+
+0.11  Mon Aug 11 14:20:01 2014
+	- Added LOGMECH support.
+
+0.12  Wed Sep 10 16:26:12 2014
+	- Added NUMBER support.

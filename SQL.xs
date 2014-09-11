@@ -36,12 +36,13 @@ MODULE = Teradata::SQL		PACKAGE = Teradata::SQL
 
  # CONNECT to Teradata
 SV *
-Xconnect(log, ccs, tmode)
-    PROTOTYPE:$$$
+Xconnect(log, ccs, tmode, logmech)
+    PROTOTYPE:$$$$
     INPUT:
 	char *	 	log
 	char *		ccs
 	char *		tmode
+	char *		logmech
     PREINIT:
 	pSession        sess_ptr;
 	int             ok;
@@ -53,7 +54,7 @@ Xconnect(log, ccs, tmode)
 	g_msglevel = SvIV(c_msgl_sv);
 
 	New(0, sess_ptr, 1, Session);
-	ok = Zconnect(sess_ptr, log, ccs, tmode);
+	ok = Zconnect(sess_ptr, log, ccs, tmode, logmech);
 	if (ok) {
 	   RETVAL = newSVpvn((char *) sess_ptr, sizeof(Session));
 	} else {
@@ -363,6 +364,7 @@ Xfetch(req, hash)
 	int		i, decp, decs;
 	pRequest	req_ptr;
 	STRLEN		slen;
+	Int16		dlen; /* data length */
 	char *		sptr;
 	char *		ret_data;
 	Byte *		indic_ptr;
@@ -474,6 +476,31 @@ Xfetch(req, hash)
 	             XPUSHs(sv_2mortal(newSVpvn(wstring, slen)));
 	          }
 	          data_ptr += 8;
+	          break;
+	       case NUMBER_N:
+	           /* Precision and scale */
+	          dlen = 0 + *((char *) data_ptr);
+	          decp = ddesc_ptr->sqlvar[i].datalen;
+	          decs = ddesc_ptr->sqlvar[i].decscale;
+
+	          if ( (*indic_ptr & indic_mask) > 0) {
+	             XPUSHs(&PL_sv_undef);
+	             data_ptr += dlen + 1;
+	          } else if (dlen <= 9) {
+	             wdouble = _num_to_double(data_ptr);
+	             XPUSHs(sv_2mortal(newSVnv(wdouble)));
+	             data_ptr += dlen + 1;
+	          } else if (dlen == 10) {
+	             _num_to_string(wstring, data_ptr);
+	             slen = strlen(wstring);
+	             XPUSHs(sv_2mortal(newSVpvn(wstring, slen)));
+	             data_ptr += dlen + 1;
+	          } else {
+		     if (g_msglevel > 0)
+	                warn("Number field too large");
+	             XPUSHs(sv_2mortal(newSVnv(0.0)));
+	             data_ptr += dlen + 1;
+	          }
 	          break;
 	       case FLOAT_N:
 	          if ( (*indic_ptr & indic_mask) > 0) {

@@ -36,12 +36,13 @@ is_ok(1, 2);
 print "DBS release: @dbs\n";
 $aph = Teradata::SQL::server_info($server, QEPIEPU);
 print "APH support: $aph\n";
-$ext_resp = Teradata::SQL::server_info($server, 20);
-print "extended response support: $ext_resp\n";
 
 print "connect......................";
 $dbh = Teradata::SQL::connect($TDLOGON, 'UTF8')
   or die "Could not connect";
+#$dbh = Teradata::SQL::connect($TDLOGON, 'UTF8','BTET',
+#  {'logmech'=>'ldap'})
+#  or die "Could not connect";
 is_ok(check_ec(), 3);
 
 print "open,fetch,close.............";
@@ -111,6 +112,7 @@ if (defined $ENV{'TDDB'}) {
    my $DB = $ENV{'TDDB'};
    $all_ok = 1;
 
+   $num_ok = ($dbs[0] ge '14.');
    $ct = "create table $DB.ZQ_decimaltests
 (ident    integer  not null,
  dec01    decimal(2,0),
@@ -118,24 +120,25 @@ if (defined $ENV{'TDDB'}) {
  dec03    decimal(9,3),
  dec04    decimal(18,0),
  dec05    decimal(18,6),\n" .
- ($bigint_ok ? "bint06   bigint" : "int06  integer") .
+ ($bigint_ok ? "bint06   bigint," : "int06  integer,") .
+ ($num_ok ? "num07  number(*,2)" : "dec07  decimal(18,2)") .
 " )
 unique primary index(ident)";
 
    $dbh->execute($ct);
    $all_ok &&= check_ec();
-   $sth = $dbh->prepare("insert into $DB.ZQ_decimaltests (?,?,?,?,?,?,?)");
+   $sth = $dbh->prepare("insert into $DB.ZQ_decimaltests (?,?,?,?,?,?,?,?)");
    $sth->executep(1, 11, 987.6, 773355.118, 9081726354666.0, 3.141592,
-     1971693993 );
+     1971693993, 1234567890123.45 );
    $sth->executep(2, -99, -999.9, -2.718, -1029384756777.0, -987.654,
-     -1058209749 );
-   $sth->executep(3, undef, undef, undef, undef, undef, undef);
-   $sth->executep(4, undef, 123.4, undef, 17, undef, -1);
+     -1058209749, -383279502886.93 );
+   $sth->executep(3, undef, undef, undef, undef, undef, undef, undef);
+   $sth->executep(4, undef, 123.4, undef, 17, undef, -1, undef);
 
-   @exp = ('1 11 987.6 773355.118 9081726354666 3.141592 1971693993',
-     '2 -99 -999.9 -2.718 -1029384756777 -987.654000 -1058209749',
-     '3      ',
-     '4  123.4  17  -1');
+   @exp = ('1 11 987.6 773355.118 9081726354666 3.141592 1971693993 1234567890123.45',
+     '2 -99 -999.9 -2.718 -1029384756777 -987.654000 -1058209749 -383279502886.93',
+     '3       ',
+     '4  123.4  17  -1 ');
    $i = 0;
    $sth = $dbh->open("select * from $DB.ZQ_decimaltests
     order by 1");
@@ -209,16 +212,3 @@ sub check_ec {
  return (Teradata::SQL::errorcode == 0);
 }
 
-
-#--- Was it okay?
-sub is_ok {
- my ($cond, $n) = @_;
-
- if ($cond) { print "ok $n\n"; }
- else { print "not ok $n\n"; }
-}
-
-#--- Check the Teradata error code.
-sub check_ec {
- return (Teradata::SQL::errorcode == 0);
-}
