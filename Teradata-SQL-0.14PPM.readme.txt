@@ -1,0 +1,29 @@
+This is a PPM distribution of Teradata::SQL 0.14. It was compiled on September
+17, 2014, under this environment:
+
+Microsoft Windows [Version 6.0.6002] [Windows Server 2008, 64-bit]
+Copyright (c) 2006 Microsoft Corporation.  All rights reserved.
+
+This is perl 5, version 16, subversion 3 (v5.16.3) built for MSWin32-x86-multi-thread
+(with 1 registered patch, see perl -V for more detail)
+
+Binary build 1604 [298023] provided by ActiveState http://www.ActiveState.com
+Built Apr 14 2014 14:32:20
+
+CLIV2 14.00.00.07
+
+Microsoft (R) 32-bit C/C++ Optimizing Compiler Version 15.00.21022.08 for 80x86
+
+Microsoft (R) Incremental Linker Version 9.00.21022.08
+
+Microsoft (R) Program Maintenance Utility Version 9.00.21022.08
+
+----------
+TO INSTALL
+----------
+
+Add Teradata-SQL-0.14.ppd and Teradata-SQL-0.14PPM.zip to any directory.
+
+In PPM (Edit > Preferences > Repositories), add that directory as a repository.
+
+Install from PPM.
